@@ -79,4 +79,4 @@ for _, row in df.iterrows():
                 for lien in liens:
                     st.write("-", lien)
 
-    st.markdown("---")u\\0369+
+    st.markdownu\\0369+
