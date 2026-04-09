@@ -1,5 +1,8 @@
 import streamlit as st
 import pandas as pd
+import networkx as nx
+from pyvis.network import Network
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Anti-Fraude", layout="wide")
 
@@ -22,10 +25,10 @@ data = [
 df = pd.DataFrame(data)
 
 st.sidebar.header("🔎 Analyse")
-
 seuil = st.sidebar.slider("Seuil d'alerte", 0, 100, 50)
 
 # Fonction de calcul du score
+
 def calcul_score(dossier, df):
     score = 0
     liens = []
@@ -36,23 +39,57 @@ def calcul_score(dossier, df):
 
         if dossier["iban"] == autre["iban"]:
             score += 50
-            liens.append(f"IBAN commun avec dossier {autre['id']}")
+            liens.append(autre["id"])
 
         if dossier["tel"] == autre["tel"]:
             score += 30
-            liens.append(f"Téléphone commun avec dossier {autre['id']}")
+            liens.append(autre["id"])
 
         if dossier["adresse"] == autre["adresse"]:
             score += 10
-            liens.append(f"Adresse commune avec dossier {autre['id']}")
+            liens.append(autre["id"])
 
         if dossier["garage"] == autre["garage"]:
             score += 15
-            liens.append(f"Garage commun avec dossier {autre['id']}")
+            liens.append(autre["id"])
 
-    return score, liens
+    return score, list(set(liens))
 
-# Affichage des données
+# --- Création du graphe ---
+
+def afficher_graphe(df):
+    G = nx.Graph()
+
+    for _, row in df.iterrows():
+        G.add_node(row["id"], label=row["nom"])
+
+    for i, dossier1 in df.iterrows():
+        for j, dossier2 in df.iterrows():
+            if i >= j:
+                continue
+
+            if (
+                dossier1["iban"] == dossier2["iban"] or
+                dossier1["tel"] == dossier2["tel"] or
+                dossier1["adresse"] == dossier2["adresse"] or
+                dossier1["garage"] == dossier2["garage"]
+            ):
+                G.add_edge(dossier1["id"], dossier2["id"])
+
+    net = Network(height="500px", width="100%", notebook=False)
+    net.from_nx(G)
+
+    net.save_graph("graph.html")
+    with open("graph.html", "r", encoding="utf-8") as f:
+        components.html(f.read(), height=500)
+
+# --- Affichage ---
+
+st.subheader("📊 Graphique des connexions")
+afficher_graphe(df)
+
+st.markdown("---")
+
 for _, row in df.iterrows():
     score, liens = calcul_score(row, df)
 
@@ -75,8 +112,7 @@ for _, row in df.iterrows():
                 st.success("✅ OK")
 
         if liens:
-            with st.expander("🔗 Voir les liens détectés"):
-                for lien in liens:
-                    st.write("-", lien)
+            with st.expander("🔗 Voir les connexions"):
+                st.write("Dossiers liés :", liens)
 
     st.markdown("---")
